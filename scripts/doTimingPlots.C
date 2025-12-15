@@ -1,11 +1,15 @@
+// Loop through timing plots to make, plot each
+
 void doTimingPlots_v2(TString Dir, TFile* File, TString Name, TString LegName) {
     File->cd();
-    TH1F* hm0_new;
+    const char* plot_dir = Form("%s/plots", Dir.Data());
+    gSystem->Exec(Form("[ ! -d %s ] && mkdir %s", plot_dir, plot_dir));
+
+    int nbins = 400; double xmax = 20.;
     if (Name == "tot_event_timing" || Name == "tot_event_timing_noFilters") {
-        hm0_new = new TH1F(Form("hm0_%s", Name.Data()), Form("%s ", Name.Data()), 50, 0, 60);
-    } else {
-        hm0_new = new TH1F(Form("hm0_%s", Name.Data()), Form("%s ", Name.Data()), 40, 0, 20);
+      nbins = 500; xmax = 60.;
     }
+    TH1* hm0_new = new TH1F(Form("hm0_%s", Name.Data()), Form("%s ", Name.Data()), 500, 0, 60);
 
     // Declare a float variable to hold the total time
     float totalTime = 0.0;
@@ -28,8 +32,9 @@ void doTimingPlots_v2(TString Dir, TFile* File, TString Name, TString LegName) {
         y[i] = hm0_new->GetBinContent(i);
     }
     double medianOfHisto = TMath::Median(numBins, x, y);
+    hm0_new->Rebin(10); // rebing after the median calculation
 
-    leg->AddEntry(hm0_new, Form("median = %2.1f", medianOfHisto), "P");
+    leg->AddEntry(hm0_new, Form("median = %.2f", medianOfHisto), "P");
 
     TPaveText* tp = new TPaveText(0.19, 0.899, 0.27, 0.939, "NDC");
     tp->SetBorderSize(0);
@@ -69,75 +74,48 @@ void doTimingPlots_v2(TString Dir, TFile* File, TString Name, TString LegName) {
     hm0_new->Write();
     c0->Write();
 }
-void plotAllTiming(TString Dir){
-  std::vector<TString> names = {"makeSD",
-				"CaloClusterFast",
-			//	"FastCaloHitMaker",
-				"CaloHitMakerFast",
-				"cprDeLowPStopTargHSFilter",
-				"cprDeLowPStopTargPS",
-				"cprDeLowPStopTargTCFilter",
-				"cprDeLowPStopTargKSFilter",
-				"cprDeHighPStopTargHSFilter",
-				"cprDeHighPStopTargPS",
-				"cprDeHighPStopTargTCFilter",
-				"cprDeHighPStopTargKSFilter",
-                                "aprLowPStopTargHSFilter",
-				"aprLowPStopTargPS",
-				"aprLowPStopTargTCFilter",
-				"aprLowPStopTargKSFilter",
-				"aprHighPStopTargHSFilter",
-				"aprHighPStopTargPS",
-				"aprHighPStopTargTCFilter",
-				"aprHighPStopTargKSFilter",
-				//"OfflineFragmentReader",
-				"tprHelixDeIpaPhiScaledHSFilter",
-				"tprHelixDeIpaPhiScaledPS",
-				"tprHelixDeIpaPhiScaledTCFilter",
-				"tprHelixDeIpaHSFilter",
-				"tprHelixDeIpaPS",
-				"tprHelixDeIpaTCFilter",
-				"tprDeLowPStopTargHSFilter",
-				"tprDeLowPStopTargPS",
-				"tprDeLowPStopTargTCFilter",
-				"tprDeLowPStopTargKSFilter",
-				"tprDeHighPStopTargHSFilter",
-				"tprDeHighPStopTargPS",
-				"tprDeHighPStopTargTCFilter",
-				"tprDeHighPStopTargKSFilter",
-				"TTCalHelixFinderDe",
-				"TTCalHelixMergerDe",
-				"TTCalSeedFitDe",
-			//	"TTCalSeedFitDep",
-				"TTCalTimePeakFinder",
-				"TTflagPH",
-				"TTDeltaFinder",
-				"TThelixFinder",
-				"TTHelixMergerDe",
-				"TTKSFDe",
-                                "TTAprHelixFinder",
-                                "TTAprHelixMerger",
-                                "TTAprKSF",
-                                "TTmakeSH",
-				"TTmakePH",
-				"TTmakeSTH",
-                                "TTTZClusterFinder",
-				"TTtimeClusterFinder",
-				"tot_event_timing",
-				"tot_event_timing_noFilters",
-				"tot_timing_filters",
-				"tot_timing_prescale",
-				"tot_timing_SDFilter",
-				"tot_timing_TCFilter",
-				"tot_timing_HSFilter",
-				"tot_timing_TSFilter"};
 
-  //names = {"TTmakeSTH" , "TTmakePH" , "TTflagPH", "CaloClusterFast" , "TTtimeClusterFinder" , "TThelixFinder" , "TTKSFDeM" , "TTKSFDeP" , "TTCalTimePeakFinder" , "TTCalHelixFinderDe" , "TTCalSeedFitDe" "subsystemOutput_init", "subsystemOutput_write", "makeSD", "CaloDigiFromShower", "tot_event_timing", "OfflineFragmentReader", "subsystemOutput_write","subsystemOutput_init"};
+std::vector<TString> get_modules(TString dir) {
+  std::vector<TString> modules = { // start with the total timing plots
+    "tot_event_timing",
+    "tot_event_timing_noFilters",
+    "tot_timing_filters",
+    "tot_timing_prescale",
+    "tot_timing_SDFilter",
+    "tot_timing_TCFilter",
+    "tot_timing_HSFilter",
+    "tot_timing_TSFilter"};
 
-  TFile*ff = new TFile(Form("%s/timing_plots.root", Dir.Data()),"recreate");
-  for (auto nn : names){
-    TString name = nn;// + ".csv";
-    doTimingPlots_v2(Dir, ff, name, nn);
+  // Add timing for each module found
+
+  TSystemDirectory sys_dir(dir, dir);
+  TList *files = sys_dir.GetListOfFiles();
+
+  if (files) {
+    TSystemFile *file;
+    TString fname;
+    TIter next(files);
+
+    // Loop through each entry in the list
+    while ((file = (TSystemFile*)next())) {
+      fname = file->GetName();
+      if(fname.EndsWith(".csv") && !fname.Contains("tot_")) {
+        fname.ReplaceAll(".csv", "");
+        modules.push_back(fname);
+      }
+    }
+  }
+
+  // Return the list of plots to make
+  return modules;
+}
+
+void plotAllTiming(TString dir) {
+  std::vector<TString> modules = get_modules(dir);
+
+  TFile*ff = new TFile(Form("%s/timing_plots.root", dir.Data()),"RECREATE");
+  for (auto module : modules){
+    doTimingPlots_v2(dir, ff, module, module);
   }
   ff->Close();
 }

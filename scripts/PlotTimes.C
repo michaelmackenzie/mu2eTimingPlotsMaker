@@ -83,23 +83,30 @@ void PlotAllTimes(const char* dirname, double maxtime) {
 
 using namespace std;
 
-void PlotTime(const char* dirname, const char* name, TH1F* timeplot, float& totalTime) {
+void PlotTime(const char* dirname, const char* name, TH1* timeplot, float& totalTime) {
     TTree* rdtree = new TTree(name, name);
     string fullname = std::string(dirname) + std::string(name);
-    rdtree->ReadFile(fullname.c_str(), "evt/I:time/F", ',');
+    rdtree->ReadFile(fullname.c_str(), "run/I:subrun/I:event/I:time/F", ',');
 
-    // Project the time histogram
-    rdtree->Project(timeplot->GetName(), "1000.0*time");
+    // // Project the time histogram
+    // rdtree->Project(timeplot->GetName(), "1000.0*time");
 
     // Calculate the total time from the tree
-    Float_t time = 0.0;
-    rdtree->SetBranchAddress("time", &time);
+    Float_t time = 0.0; Int_t run(0), subrun(0), event(0);
+    rdtree->SetBranchAddress("time"  , &time);
+    rdtree->SetBranchAddress("run"   , &run);
+    rdtree->SetBranchAddress("subrun", &subrun);
+    rdtree->SetBranchAddress("event" , &event);
 
     int nEntries = rdtree->GetEntries();
     totalTime = 0.0;
-    for (int i = 0; i < nEntries; ++i) {
+    for (int i = 1; i < nEntries; ++i) { // skip the first event
         rdtree->GetEntry(i);
         totalTime += time; // Accumulate the time values
+        if(time > 0.03) { // over 30 ms
+          cout << name << ": Entry " << i << " Event " << run << "/" << subrun << "/" << event << ": Time = " << time << endl;
+        }
+        timeplot->Fill(1000.*time);
     }
 }
 

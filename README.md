@@ -14,3 +14,27 @@ Set of scripts for producing histograms of the processing time of the modules in
   - `plotAllTiming("input_dir/ntasks_x/csv_yz")`
 - for producing the summary table for each block of modules (`producers`, `filters`, `summary`) we use a `python` script:
   - `python python/plot_filters_time.py -s input_dir/timing_plots.root -o input_dir`, where `timing_plots.root` is the ROOT file produced by the ROOT script from the previous step
+
+## Performing an example measurement
+
+Processing the data-like one batch mode data used for the trigger CI (on build02):
+```
+# setup muse area
+NAME="one_batch"
+TAG="1BB"
+DIR="timing/${NAME}"
+PATHS="apr_TrkDe_80m70p,cpr_TrkDe_80m70p"
+[ ! -d ${DIR} ] && mkdir -p ${DIR}
+python mu2e-trig-config/python/genTimingFcl.py -n ${NAME} -p ${PATHS}
+cp ${NAME}.fcl ${DIR}/
+time mu2e -c ${NAME}.fcl -S mu2e-trig-config/ci/data_files.txt
+cp triggerTiming.db ${DIR}/triggerTiming.db
+source mu2eTimingPlotsMaker/bash/ProcessSQL.sh timing ${TAG}
+python mu2eTimingPlotsMaker/python/merge_timing_files.py -i ${DIR}/csv_${TAG}/
+root.exe -q -b "mu2eTimingPlotsMaker/scripts/runAllTiming.C(\"${DIR}/csv_${TAG}\")"
+
+# in a new shell
+mu2einit
+pyenv rootana
+python mu2eTimingPlotsMaker/python/plot_filters_time.py -s ${DIR}/csv_${TAG}/timing_plots.root -o ${DIR}/csv_${TAG}/plots/
+```
