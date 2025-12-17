@@ -1,5 +1,9 @@
 #!/bin/bash
 
+#-------------------------------------------------------------
+# Get the inputs
+#-------------------------------------------------------------
+
 DIRECTORY=$1
 TAG=$2
 if [ ! -d ${DIRECTORY} ]; then
@@ -7,42 +11,55 @@ if [ ! -d ${DIRECTORY} ]; then
     exit
 fi
 
+#-------------------------------------------------------------
+# Get the input database file
+#-------------------------------------------------------------
 
-for dd in $1/*
-do
-    dir=$dd
-    echo "Processing directory $dir"
-    for FILE in ${dd}/*.db
-    do
-        echo "--> Processing $FILE"
+echo "Processing directory ${DIRECTORY}"
+FILE=`ls -dt ${DIRECTORY}/*.db | head -n 1`
+if [[ "${FILE}" == "" ]]; then
+    echo "No timing database found!"
+    exit
+fi
+echo "--> Processing ${FILE}"
 
-        if [ ! -d $dir/csv_${TAG} ]; then
-            mkdir -p $dir/csv_${TAG}
-        else
-            echo "--> Clearing previous results"
-            rm $dir/csv_${TAG}/*.csv
-        fi
-        echo "---> Processing batch ${TAG}"
+#-------------------------------------------------------------
+# Make the output area
+#-------------------------------------------------------------
 
-        # Check what modules were run in the events
-        module_list=`sqlite3 ${FILE} -separator "," "SELECT ModuleLabel FROM TimeModule" | sort | uniq`
+if [ ! -d ${DIRECTORY}/csv_${TAG} ]; then
+    mkDIRECTORY -p ${DIRECTORY}/csv_${TAG}
+else
+    echo "--> Clearing previous results"
+    rm ${DIRECTORY}/csv_${TAG}/*.csv
+fi
+echo "---> Processing batch ${TAG}"
 
-        # Process the timing for each module
-        for mod in ${module_list}; do
-            echo Processing module $mod
-            sqlite3  -separator "," $FILE "SELECT Run, SubRun, Event, Time FROM TimeModule WHERE ModuleLabel='${mod}';" >| $dir/csv_${TAG}/$mod.csv
-        done
+#-------------------------------------------------------------
+# Create the CSV files for each module run
+#-------------------------------------------------------------
 
-        # Process the input source timing
-        sqlite3  -separator "," $FILE  "SELECT Run, SubRun, Event, Time FROM TimeSource" >| $dir/csv_${TAG}/OfflineFragmentReader.csv
+# Check what modules were run in the events
+MODULES=`sqlite3 ${FILE} -separator "," "SELECT ModuleLabel FROM TimeModule" | sort | uniq`
 
-        # Process the total event timing
-        sqlite3  -separator "," $FILE  "SELECT Run, SubRun, Event, Time FROM TimeEvent" >| $dir/csv_${TAG}/tot_event.csv
-
-        # split the output into every-other line, init and write
-        if [ -f $dir/csv_${TAG}/subsystemOutput.csv ]; then
-            sed -n 'p;n' $dir/csv_${TAG}/subsystemOutput.csv >| $dir/csv_${TAG}/subsystemOutput_init.csv
-            sed -n 'n;p' $dir/csv_${TAG}/subsystemOutput.csv >| $dir/csv_${TAG}/subsystemOutput_write.csv
-        fi
-    done
+# Process the timing for each module
+for MOD in ${MODULES}; do
+    echo Processing module ${MOD}
+    sqlite3  -separator "," ${FILE} "SELECT Run, SubRun, Event, Time FROM TimeModule WHERE ModuleLabel='${MOD}';" >| ${DIRECTORY}/csv_${TAG}/${MOD}.csv
 done
+
+#-------------------------------------------------------------
+# Create the summary timing CSV files
+#-------------------------------------------------------------
+
+# Process the input source timing
+sqlite3  -separator "," ${FILE}  "SELECT Run, SubRun, Event, Time FROM TimeSource" >| ${DIRECTORY}/csv_${TAG}/OfflineFragmentReader.csv
+
+# Process the total event timing
+sqlite3  -separator "," ${FILE}  "SELECT Run, SubRun, Event, Time FROM TimeEvent" >| ${DIRECTORY}/csv_${TAG}/tot_event.csv
+
+# split the output into every-other line, init and write
+if [ -f ${DIRECTORY}/csv_${TAG}/subsystemOutput.csv ]; then
+    sed -n 'p;n' ${DIRECTORY}/csv_${TAG}/subsystemOutput.csv >| ${DIRECTORY}/csv_${TAG}/subsystemOutput_init.csv
+    sed -n 'n;p' ${DIRECTORY}/csv_${TAG}/subsystemOutput.csv >| ${DIRECTORY}/csv_${TAG}/subsystemOutput_write.csv
+fi
