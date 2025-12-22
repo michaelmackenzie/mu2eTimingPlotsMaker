@@ -20,16 +20,18 @@ Set of scripts for producing histograms of the processing time of the modules in
 Processing the data-like one batch mode data used for the trigger CI (on build02):
 ```
 # setup muse area
-NAME="one_batch"
+NAME="one_batch_MDC2025"
 TAG="1BB"
 DIR="timing/${NAME}"
 PATHS="apr_TrkDe_80m70p,cpr_TrkDe_80m70p"
 [ ! -d ${DIR} ] && mkdir -p ${DIR}
 python mu2e-trig-config/python/genTimingFcl.py -n ${NAME} -p ${PATHS}
+mu2e -c ${NAME}.fcl --debug-config ${NAME}_debug.fcl
 cp ${NAME}.fcl ${DIR}/
+cp ${NAME}_debug.fcl ${DIR}/
 time mu2e -c ${NAME}.fcl -S mu2e-trig-config/ci/data_files.txt
 cp triggerTiming.db ${DIR}/triggerTiming.db
-source mu2eTimingPlotsMaker/bash/ProcessSQL.sh timing ${TAG}
+source mu2eTimingPlotsMaker/bash/ProcessSQL.sh ${DIR} ${TAG}
 python mu2eTimingPlotsMaker/python/merge_timing_files.py -i ${DIR}/csv_${TAG}/
 root.exe -q -b "mu2eTimingPlotsMaker/scripts/runAllTiming.C(\"${DIR}/csv_${TAG}\")"
 

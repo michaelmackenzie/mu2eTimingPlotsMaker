@@ -28,7 +28,7 @@ echo "--> Processing ${FILE}"
 #-------------------------------------------------------------
 
 if [ ! -d ${DIRECTORY}/csv_${TAG} ]; then
-    mkDIRECTORY -p ${DIRECTORY}/csv_${TAG}
+    mkdir -p ${DIRECTORY}/csv_${TAG}
 else
     echo "--> Clearing previous results"
     rm ${DIRECTORY}/csv_${TAG}/*.csv
