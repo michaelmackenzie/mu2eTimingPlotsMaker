@@ -71,6 +71,14 @@ void doTimingPlots_v2(TString Dir, TFile* File, TString Name, TString LegName) {
     tp->Draw();
     c0->Print(Form("%s/plots/%s.png", Dir.Data(), Name.Data()));
 
+    // Print these results
+    if(Name == "tot_event_timing") {
+      const double mean = hm0_new->GetMean();
+      const double mean_err = hm0_new->GetMeanError();
+      const double std_dev = hm0_new->GetStdDev();
+      printf("Total event timing: mean = %.3f +- %.3f ms, std-dev = %.3f ms\n", mean, mean_err, std_dev);
+    }
+
     hm0_new->Write();
     c0->Write();
 }
